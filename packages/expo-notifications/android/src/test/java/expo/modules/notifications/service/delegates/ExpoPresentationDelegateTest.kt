@@ -65,6 +65,15 @@ class ExpoPresentationDelegateTest {
   }
 
   @Test
+  fun `presentNotification cancels the old summary when a re-posted identifier leaves its group`() {
+    present(identifier = "x", group = "group-a")
+
+    present(identifier = "x", group = null)
+
+    assertEquals(setOf("x"), activeTags())
+  }
+
+  @Test
   fun `getAllPresentedNotifications excludes group summary notifications`() {
     present(identifier = "child-1", group = "group-a")
 

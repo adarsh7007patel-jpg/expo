@@ -371,7 +371,8 @@ public class NotificationContent implements Parcelable, Serializable, INotificat
     }
 
     public Builder setGroup(String group) {
-      content.mGroup = group;
+      // An empty string would create a nameless group; treat it as no group (iOS reports it as null too)
+      content.mGroup = group == null || group.isEmpty() ? null : group;
       return this;
     }
 

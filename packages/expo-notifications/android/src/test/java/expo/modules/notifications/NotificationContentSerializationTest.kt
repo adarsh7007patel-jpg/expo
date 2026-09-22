@@ -16,6 +16,10 @@ import org.junit.Before
 const val mockData = "{\"key\":\"value\"}"
 
 class NotificationContentSerializationTest {
+  @Test
+  fun `builder normalizes an empty group to null`() {
+    assertNull(NotificationContent.Builder().setGroup("").build().group)
+  }
 
   @Before
   fun setup() {

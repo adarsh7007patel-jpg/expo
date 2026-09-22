@@ -124,23 +124,26 @@ open class ExpoPresentationDelegate(
 
   internal suspend fun presentNotificationInternal(notification: Notification, behavior: NotificationBehaviorRecord?) {
     val androidNotification = createNotification(notification, behavior)
+    val request = notification.notificationRequest
+    val tag = request.identifier
+    val id = getNotifyId(request)
 
     // Cleanup reads an activeNotifications snapshot that lags in-flight notify()/cancel() calls,
     // so all mutations serialize on one lock, and cleanup runs before notify() — a later snapshot
     // could miss the in-flight post and cancel the fresh summary.
     presentationMutex.withLock {
+      // notify() replaces a notification with the same (tag, id); if that moves it out of its
+      // group, the old group is about to lose a member.
+      val replaced = notificationManager.activeNotifications.firstOrNull { it.tag == tag && it.id == id }
+      val leavesOldGroup = replaced != null && replaced.notification.group != request.content.group
       // runCatching: a throw would kill the process (unsupervised coroutine)
-      runCatching { cleanUpOrphanedGroupSummaries() }
+      runCatching { cleanUpOrphanedGroupSummaries(cancelled = if (leavesOldGroup) setOf(tag to id) else emptySet()) }
         .onFailure { Log.e("expo-notifications", "Failed to clean up group summary notifications.", it) }
 
-      notificationManager.notify(
-        notification.notificationRequest.identifier,
-        getNotifyId(notification.notificationRequest),
-        androidNotification
-      )
+      notificationManager.notify(tag, id, androidNotification)
 
-      notification.notificationRequest.content.group?.let { group ->
-        runCatching { postGroupSummary(group, notification.notificationRequest.identifier, androidNotification) }
+      request.content.group?.let { group ->
+        runCatching { postGroupSummary(group, tag, androidNotification) }
           .onFailure { Log.e("expo-notifications", "Failed to post a group summary notification.", it) }
       }
     }
